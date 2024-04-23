@@ -165,7 +165,170 @@ mechanism.
 
 3. Timeout initiated by the server
 
-4. Connection closed by the `curl` client, io.EOF on the server
+### Unit test framework for the server application.
+
+Unit testing, as the name suggests, is usually designed to test basic units of the code
+that one writes. It's almost always a good idea to divide your application into
+various components/services that deal with different "high-level" ideas. Such as in project3,
+we have separate files for response, request and server. These give you a way to test small
+pieces of the code and build a larger service with reliability.
+
+The smallest testable parts are called 'units' which are tested independently of all other
+units in the system.
+Go provides us with a standard library package 'testing' to write automated unit tests.
+The way you test in go is by using a single command `go test` and some conventions to write tests:
+
+- The `go test` command looks for the functions of the following signature func **TestXxx(\*testing.T)**
+- Xxx can be any alphanumeric string that starts with an uppercase letter
+- `go test` will run test files that have a suffix `_test.go`.
+
+`testing.T` ([package](https://pkg.go.dev/testing#pkg-index))
+
+```go
+type T struct {
+	common
+	isParallel bool
+	isEnvSet   bool
+	context    *testContext // For running tests and subtests.
+}
+```
+
+`go test` has several, very interesting functionalities, associated with flags to this call.
+To check them out run `go help testflag`. One such flag is `-cover` which provides you
+with a code coverage feature using your unit tests.
+
+`server_test.go` <br/>
+
+- `SIMPLE GET`
+
+```
+request := "GET /index.html HTTP/1.1\r\n" +
+           "Host: test\r\n" +
+           "\r\n"
+```
+
+- `SIMPLE POST`
+
+```
+request := "POST /index.html HTTP/1.1\r\n" +
+            "Host: test\r\n" +
+            "\r\n"
+```
+
+### go test usage from the command line
+
+```
+go test
+```
+
+v/s
+
+```
+go test -v
+```
+
+For various commands checkout `go help test`
+
+```
+go test -v -cover
+```
+
+Running an individual test
+
+```
+go test -v -run TestHandleConnection_Simple_GET
+```
+
+#### Table tests
+
+Table-driven tests:
+Each table entry is a complete test case with inputs and expected results, and sometimes with
+additional information such as a test name to make the test output easily readable.
+
+- The actual test simply iterates through all table entries and for each entry performs the necessary tests.
+- The test code is written once and amortized over all table entries, so it makes sense to write a careful test with good error messages
+- In most cases the table is a slice of anonymous structs, which allows the table to be written in a compact form.
+
+Running an individual table test
+
+```
+go test -v -run TestReadMultipleRequests/GoodBad
+```
+
+server_tableTests_test.go
+
+```
+var tests = []struct {
+		name    string
+		reqText string
+		reqWant *Request
+	}{
+		{
+			"Simple GET",
+			"GET /index.html HTTP/1.1\r\n" +
+				"Host: test\r\n" +
+				"\r\n",
+			&Request{
+				Method: "GET",
+			},
+		},
+	}
+```
+
+```
+var tests = []struct {
+		name string
+		req  string
+	}{
+		{
+			"Basic",
+			"This is a bad request\r\n",
+		},
+		{
+			"Empty",
+			"\r\n",
+		},
+		{
+			"InvalidHTTPVerb",
+			"GETT /index.html HTTP/1.1\r\nHost: test\r\n\r\n",
+		},
+		{
+			"NotSupportedHTTPVerb",
+			"POST /index.html HTTP/1.0\r\nHost: test\r\n\r\n",
+		},
+	}
+```
+
+Running multiple tests as separate go-routines
+[t.Run](https://pkg.go.dev/testing#T.Run)
+
+#### Parallel tests
+
+[Some interesting and lesser known things about go test](https://splice.com/blog/lesser-known-features-go-test/)
+
+The testing package in Go also lets us parallelize tests so that a test suite
+can run faster. This is accomplished by the use of `testing.Parallel `.
+
+```go
+t.Run(tt.name, func(t *testing.T) {
+    t.Parallel()
+}
+```
+
+We've introduced a sleep in server_parallelTests_tests to show how parallel test execution
+can speed up the test suite.
+
+The number of tests run simultaneously in parallel is the current value of `GOMAXPROCS` by default.
+The following will run 4 tests in parallel.
+`go test -parallel 4`
+
+Try running the following with `t.Parallel()` in the test code commented out.
+
+```
+go test -v -run TestReadBadRequest_parallel
+```
+
+Now, run the same command again with t.Parallel() and notice the time difference between the two runs.
 
 PS : Link to the Goland IDE is [here](https://www.jetbrains.com/go/). Check it out if you want, it's pretty cool!
 Also, if you're interested see [Breakpoints in VSCode for go](https://github.com/golang/vscode-go/blob/master/docs/debugging.md)
