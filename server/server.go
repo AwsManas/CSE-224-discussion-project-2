@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	responseProto = "HTTP/1.1"
-	statusOK         		= 200
-	statusMethodNotAllowed  = 405
+	responseProto          = "HTTP/1.1"
+	statusOK               = 200
+	statusMethodNotAllowed = 405
 )
 
-var statusText = map[int]string {
-	statusOK:         		"OK",
+var statusText = map[int]string{
+	statusOK:               "OK",
 	statusMethodNotAllowed: "Method Not Allowed",
 }
 
@@ -37,9 +37,9 @@ type Request struct {
 }
 
 type Response struct {
-	StatusCode int    // e.g. 200 / 405
-	Proto string	  // HTTP/1.1
-	FilePath string		  // For this application, we will hard-code this to whatever contents are available in "hello-world.txt"
+	StatusCode int    // e.g. 200 / 405 DO NOT USE 405 in your project!
+	Proto      string // HTTP/1.1
+	FilePath   string // For this application, we will hard-code this to the location of "hello-world.txt"
 }
 
 func (s *Server) ListenAndServe() error {
@@ -93,6 +93,8 @@ func (s *Server) ValidateServerSetup() error {
 // HandleConnection reads requests from the accepted conn and handles them.
 func (s *Server) HandleConnection(conn net.Conn) {
 	br := bufio.NewReader(conn)
+
+	// continuously read from  connection
 	for {
 		// Set timeout
 		if err := conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
@@ -111,8 +113,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 			return
 		}
 
-		// timeout in this application means we just close the connection
-		// Note : proj3 might require you to do a bit more here
+		// Handle Timeout
 		if err, ok := err.(net.Error); ok && err.Timeout() {
 			log.Printf("Connection to %v timed out", conn.RemoteAddr())
 			_ = conn.Close()
@@ -142,30 +143,20 @@ func (s *Server) HandleConnection(conn net.Conn) {
 	}
 }
 
-func (s *Server) HandleGoodRequest() (res *Response) {
-	res = &Response{}
-	res.HandleOK()
-	res.FilePath = filepath.Join(s.DocRoot, "hello-world.txt")
+func (s *Server) HandleGoodRequest() (r *Response) {
+	r = &Response{}
 
-	return res
-}
-
-// HandleOK prepares res to be a 200 OK response
-// ready to be written back to client.
-func (res *Response) HandleOK() {
-	res.init()
-	res.StatusCode = statusOK
+	r.Proto = responseProto
+	r.StatusCode = statusOK
+	r.FilePath = filepath.Join(s.DocRoot, "hello-world.txt")
+	return r
 }
 
 // HandleBadRequest prepares res to be a 405 Method Not allowed response
 func (res *Response) HandleBadRequest() {
-	res.init()
+	res.Proto = responseProto
 	res.StatusCode = statusMethodNotAllowed
 	res.FilePath = ""
-}
-
-func (res *Response) init() {
-	res.Proto = responseProto
 }
 
 func ReadRequest(br *bufio.Reader) (req *Request, err error) {
@@ -185,6 +176,8 @@ func ReadRequest(br *bufio.Reader) (req *Request, err error) {
 	if !validMethod(req.Method) {
 		return nil, badStringError("invalid method", req.Method)
 	}
+
+	// Read other lines of requests
 
 	for {
 		line, err := ReadLine(br)
